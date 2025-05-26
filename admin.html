@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin Panel – Natraj Maths</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 text-gray-900 dark:bg-gray-900 dark:text-white">
+  <div class="max-w-4xl mx-auto p-6 space-y-8">
+    <h1 class="text-3xl font-bold text-center">Natraj Maths – Admin Panel</h1>
+
+    <!-- Create Student -->
+    <section class="bg-white dark:bg-gray-800 shadow rounded-xl p-6">
+      <h2 class="text-xl font-semibold mb-4">Create Student</h2>
+      <form id="create-student-form" class="space-y-4">
+        <input type="text" id="student-name" placeholder="Student Name" class="w-full p-3 border rounded" required />
+        <input type="text" id="student-id" placeholder="Student ID (unique)" class="w-full p-3 border rounded" required />
+        <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Add Student</button>
+      </form>
+    </section>
+
+    <!-- Enter Marks -->
+    <section class="bg-white dark:bg-gray-800 shadow rounded-xl p-6">
+      <h2 class="text-xl font-semibold mb-4">Enter Marks</h2>
+      <form id="enter-marks-form" class="space-y-4">
+        <input type="text" id="mark-student-id" placeholder="Student ID" class="w-full p-3 border rounded" required />
+        <input type="text" id="test-name" placeholder="Test Name" class="w-full p-3 border rounded" required />
+        <input type="number" id="total-marks" placeholder="Total Marks" class="w-full p-3 border rounded" required />
+        <input type="number" id="scored-marks" placeholder="Scored Marks" class="w-full p-3 border rounded" required />
+        <button type="submit" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">Submit Marks</button>
+      </form>
+    </section>
+  </div>
+
+  <script>
+    const USERNAME = 'nithish-41028';
+    const REPO = 'Natraj_maths';
+    const FILE = 'marks.json';
+    const TOKEN = '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'; // Paste your token here
+
+    const headers = {
+      'Authorization': 'token ' + TOKEN,
+      'Accept': 'application/vnd.github.v3+json'
+    };
+
+    async function getDatabase() {
+      const res = await fetch(`https://api.github.com/repos/${USERNAME}/${REPO}/contents/${FILE}`, { headers });
+      const data = await res.json();
+      const content = atob(data.content);
+      return { json: JSON.parse(content), sha: data.sha };
+    }
+
+    async function updateDatabase(newData, sha) {
+      const content = btoa(JSON.stringify(newData, null, 2));
+      await fetch(`https://api.github.com/repos/${USERNAME}/${REPO}/contents/${FILE}`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify({
+          message: 'Update student data',
+          content,
+          sha
+        })
+      });
+      alert('Database updated successfully!');
+    }
+
+    document.getElementById('create-student-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const name = document.getElementById('student-name').value;
+      const id = document.getElementById('student-id').value;
+
+      const { json, sha } = await getDatabase();
+
+      if (json.find(s => s.id === id)) {
+        alert('Student ID already exists!');
+        return;
+      }
+
+      json.push({ id, name, marks: [] });
+      await updateDatabase(json, sha);
+    });
+
+    document.getElementById('enter-marks-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const id = document.getElementById('mark-student-id').value;
+      const test = document.getElementById('test-name').value;
+      const total = parseInt(document.getElementById('total-marks').value);
+      const scored = parseInt(document.getElementById('scored-marks').value);
+
+      const { json, sha } = await getDatabase();
+      const student = json.find(s => s.id === id);
+
+      if (!student) {
+        alert('Student not found!');
+        return;
+      }
+
+      student.marks.push({ test, total, scored });
+      await updateDatabase(json, sha);
+    });
+  </script>
+</body>
+</html>
