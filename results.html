@@ -1,188 +1,96 @@
 <!DOCTYPE html>
-<html lang="en" >
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Results - Natraj Maths</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Results | Natraj Maths</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
-<body class="bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-white min-h-screen flex flex-col">
+<body class="bg-gray-100 p-4">
+  <h1 class="text-3xl font-bold text-center mb-6">Student Results</h1>
 
-  <div class="max-w-5xl mx-auto p-6 flex-grow">
-    <h1 class="text-3xl font-bold mb-6 text-center">Natraj Maths - Results Dashboard</h1>
+  <div class="grid md:grid-cols-3 gap-6">
+    <!-- Student List -->
+    <div class="bg-white p-4 rounded shadow">
+      <h2 class="text-xl font-semibold mb-2">Students</h2>
+      <ul id="studentList" class="space-y-2"></ul>
+    </div>
 
-    <input
-      type="text"
-      id="search"
-      placeholder="Search students by name or ID..."
-      class="w-full p-3 mb-6 rounded border border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
-    />
-
-    <div class="flex flex-col md:flex-row gap-8">
-      <!-- Students List -->
-      <div class="md:w-1/3 bg-white dark:bg-gray-800 shadow rounded p-4 overflow-y-auto max-h-[500px]">
-        <h2 class="text-xl font-semibold mb-4">Students</h2>
-        <ul id="student-list" class="divide-y divide-gray-300 dark:divide-gray-700"></ul>
-      </div>
-
-      <!-- Student Details and Charts -->
-      <div class="md:w-2/3 bg-white dark:bg-gray-800 shadow rounded p-6">
-        <h2 id="student-name" class="text-2xl font-bold mb-4">Select a student to see results</h2>
-
-        <div id="stats" class="mb-6 space-y-2"></div>
-
-        <canvas id="scoreChart" height="200"></canvas>
-      </div>
+    <!-- Student Marks -->
+    <div class="md:col-span-2 bg-white p-4 rounded shadow">
+      <h2 class="text-xl font-semibold mb-2" id="studentTitle">Select a student</h2>
+      <div id="marksDisplay" class="mb-4"></div>
+      <canvas id="marksChart" height="150"></canvas>
     </div>
   </div>
 
   <script>
-    const USERNAME = 'nithish-41028';
-    const REPO = 'Natraj_maths';
-    const FILE = 'marks.json';
+    const dataUrl = "https://raw.githubusercontent.com/nithish-41028/Natraj_maths/main/marks.json";
+    let students = [];
+    let chart = null;
 
-    const studentListEl = document.getElementById('student-list');
-    const studentNameEl = document.getElementById('student-name');
-    const statsEl = document.getElementById('stats');
-    const searchInput = document.getElementById('search');
-    const ctx = document.getElementById('scoreChart').getContext('2d');
-    let chart;
-
-    async function fetchDatabase() {
-      const res = await fetch(`https://raw.githubusercontent.com/${USERNAME}/${REPO}/main/${FILE}`);
-      if (!res.ok) throw new Error('Failed to load data');
-      return res.json();
+    async function loadData() {
+      const res = await fetch(dataUrl);
+      students = await res.json();
+      renderStudentList();
     }
 
-    function renderStudentList(students) {
-      studentListEl.innerHTML = '';
-      students.forEach(({ id, name }) => {
-        const li = document.createElement('li');
-        li.textContent = `${name} (${id})`;
-        li.className = 'py-2 px-3 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 rounded';
-        li.addEventListener('click', () => selectStudent(id));
-        studentListEl.appendChild(li);
+    function renderStudentList() {
+      const list = document.getElementById("studentList");
+      list.innerHTML = "";
+      students.forEach((s, i) => {
+        const li = document.createElement("li");
+        li.className = "cursor-pointer text-blue-600 hover:underline";
+        li.textContent = `${s.name} (${s.id})`;
+        li.onclick = () => showStudent(i);
+        list.appendChild(li);
       });
     }
 
-    let allStudents = [];
-    let currentStudent = null;
+    function showStudent(index) {
+      const s = students[index];
+      document.getElementById("studentTitle").textContent = `${s.name} (${s.id})`;
 
-    function formatNumber(num) {
-      return num.toFixed(2);
-    }
+      const marksDiv = document.getElementById("marksDisplay");
+      marksDiv.innerHTML = s.marks.map(m =>
+        `<div class="mb-1">${m.test}: <strong>${m.scored}</strong> / ${m.total}</div>`
+      ).join("");
 
-    function calculateStats(marks) {
-      if (marks.length === 0) return null;
-      const totals = marks.map(m => m.total);
-      const scored = marks.map(m => m.scored);
-      const maxScore = Math.max(...scored);
-      const minScore = Math.min(...scored);
-      const avgScore = scored.reduce((a,b) => a+b,0) / scored.length;
-      const totalTests = marks.length;
-      return { maxScore, minScore, avgScore, totalTests };
-    }
-
-    function renderStats(stats) {
-      if (!stats) {
-        statsEl.innerHTML = '<p>No tests entered yet.</p>';
-        return;
-      }
-      statsEl.innerHTML = `
-        <p><strong>Total Tests:</strong> ${stats.totalTests}</p>
-        <p><strong>Highest Score:</strong> ${formatNumber(stats.maxScore)}</p>
-        <p><strong>Lowest Score:</strong> ${formatNumber(stats.minScore)}</p>
-        <p><strong>Average Score:</strong> ${formatNumber(stats.avgScore)}</p>
-      `;
-    }
-
-    function renderChart(marks) {
-      const labels = marks.map(m => m.test);
-      const totalMarks = marks.map(m => m.total);
-      const scoredMarks = marks.map(m => m.scored);
+      const labels = s.marks.map(m => m.test);
+      const scores = s.marks.map(m => m.scored);
+      const totals = s.marks.map(m => m.total);
 
       if (chart) chart.destroy();
-
+      const ctx = document.getElementById("marksChart").getContext("2d");
       chart = new Chart(ctx, {
         type: 'bar',
         data: {
           labels,
           datasets: [
             {
-              label: 'Total Marks',
-              data: totalMarks,
-              backgroundColor: 'rgba(59, 130, 246, 0.5)', // blue
-              borderColor: 'rgba(59, 130, 246, 1)',
-              borderWidth: 1,
-              type: 'bar',
+              label: "Scored",
+              data: scores,
+              backgroundColor: "rgba(34, 197, 94, 0.7)"
             },
             {
-              label: 'Scored Marks',
-              data: scoredMarks,
-              backgroundColor: 'rgba(16, 185, 129, 0.7)', // green
-              borderColor: 'rgba(16, 185, 129, 1)',
-              borderWidth: 2,
-              type: 'line',
-              fill: false,
-              tension: 0.3,
+              label: "Total",
+              data: totals,
+              backgroundColor: "rgba(59, 130, 246, 0.5)"
             }
-          ],
+          ]
         },
         options: {
           responsive: true,
-          animation: {
-            duration: 1000,
-            easing: 'easeOutQuart'
-          },
-          scales: {
-            y: {
-              beginAtZero: true
-            }
-          },
           plugins: {
-            legend: {
-              position: 'top',
-            },
-            tooltip: {
-              enabled: true
-            }
+            legend: { position: "bottom" },
+            title: { display: true, text: "Test Performance" }
           }
         }
       });
     }
 
-    async function selectStudent(id) {
-      currentStudent = allStudents.find(s => s.id === id);
-      if (!currentStudent) return;
-
-      studentNameEl.textContent = `${currentStudent.name} (${currentStudent.id})`;
-      renderStats(calculateStats(currentStudent.marks));
-      renderChart(currentStudent.marks);
-    }
-
-    function filterStudents(query) {
-      query = query.toLowerCase();
-      return allStudents.filter(s =>
-        s.name.toLowerCase().includes(query) ||
-        s.id.toLowerCase().includes(query)
-      );
-    }
-
-    searchInput.addEventListener('input', () => {
-      const filtered = filterStudents(searchInput.value);
-      renderStudentList(filtered);
-    });
-
-    (async () => {
-      try {
-        allStudents = await fetchDatabase();
-        renderStudentList(allStudents);
-      } catch (err) {
-        studentNameEl.textContent = 'Failed to load data.';
-        console.error(err);
-      }
-    })();
+    loadData();
   </script>
 </body>
 </html>
